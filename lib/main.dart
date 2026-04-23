@@ -7,6 +7,7 @@ import 'dart:ui';
 // GLOBAL THEME STATE — DARK BY DEFAULT
 // ─────────────────────────────────────────────
 final ValueNotifier<bool> isDarkMode = ValueNotifier(true);
+final ValueNotifier<bool> isDoctorMode = ValueNotifier(false);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -225,21 +226,21 @@ class MainNavigationWrapper extends StatefulWidget {
 class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const HomeScreen(),
-    const ScheduleScreen(),
-    const ChatListScreen(),
-    const ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: isDoctorMode,
+      builder: (context, docMode, _) {
+        final pages = docMode
+          ? const [DoctorDashboardScreen(), ScheduleScreen(), ChatListScreen(), ProfileScreen()]
+          : const [HomeScreen(), ScheduleScreen(), ChatListScreen(), ProfileScreen()];
+        if (_currentIndex >= pages.length) _currentIndex = 0;
+        return Scaffold(
+          extendBody: true,
+          body: IndexedStack(
+            index: _currentIndex,
+            children: pages,
+          ),
       bottomNavigationBar: SafeArea(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -272,6 +273,8 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 
@@ -994,8 +997,10 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 _buildHealthStats(),
                 const SizedBox(height: 32),
-                _buildMenuOption(Icons.medical_information_rounded, 'Medical Records', const Color(0xFF6C63FF)),
+                _buildMenuOptionNav(Icons.medical_information_rounded, 'Medical Records', const Color(0xFF6C63FF), const MedicalRecordsScreen()),
+                _buildMenuOptionNav(Icons.search_rounded, 'Find Doctors', AppColors.accent, const DoctorSearchScreen()),
                 _buildMenuOption(Icons.payment_rounded, 'Payment Methods', const Color(0xFF9C27B0)),
+                _buildDoctorModeSwitch(),
                 _buildMenuOption(Icons.settings_rounded, 'Settings', const Color(0xFFFF8E53)),
                 _buildMenuOption(Icons.help_center_rounded, 'Help Center', AppColors.accentGreen),
                 _buildMenuOption(Icons.logout_rounded, 'Logout', AppColors.danger, isLast: true),
@@ -1128,6 +1133,39 @@ class ProfileScreen extends StatelessWidget {
         title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isLast ? color : AppColors.textPrimary)),
         trailing: isLast ? null : Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary),
         onTap: () {},
+      ),
+    );
+  }
+
+  Widget _buildMenuOptionNav(IconData icon, String title, Color color, Widget screen) {
+    return Builder(builder: (context) => Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        leading: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: color, size: 22)),
+        title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
+      ),
+    ));
+  }
+
+  Widget _buildDoctorModeSwitch() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)]),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4))]),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        leading: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 22)),
+        title: const Text('Switch to Doctor Mode', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
+        onTap: () => isDoctorMode.value = true,
       ),
     );
   }
@@ -1368,6 +1406,19 @@ class DoctorDetailsScreen extends StatelessWidget {
                 _statBox(Icons.work_history_rounded, '${doctor.experience} Yrs', 'Experience'),
                 _statBox(Icons.reviews_rounded, '${doctor.reviews}', 'Reviews'),
               ],
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DoctorReviewsScreen(doctor: doctor))),
+              child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(16)),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.star_rounded, color: AppColors.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Text('See All ${doctor.reviews} Reviews', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.primary, size: 12),
+                ])),
             ),
             const SizedBox(height: 32),
             Text('About Doctor', style: AppStyles.h3),
@@ -1979,5 +2030,718 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
         ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────
+// NEW MODELS FOR EXPANDED FEATURES
+// ─────────────────────────────────────────────
+class MedicalRecord {
+  final String id, title, category, date, doctorName, description, fileType;
+  MedicalRecord({required this.id, required this.title, required this.category, required this.date, required this.doctorName, required this.description, this.fileType = 'pdf'});
+}
+
+class Review {
+  final String id, patientName, patientImage, comment, date;
+  final double rating;
+  Review({required this.id, required this.patientName, required this.patientImage, required this.rating, required this.comment, required this.date});
+}
+
+class PatientRecord {
+  final String id, name, age, gender, imageUrl, lastVisit, condition, bloodType;
+  final List<String> allergies;
+  PatientRecord({required this.id, required this.name, required this.age, required this.gender, required this.imageUrl, required this.lastVisit, required this.condition, this.allergies = const [], this.bloodType = 'O+'});
+}
+
+class EarningsData {
+  final String month; final double amount; final int consultations;
+  EarningsData({required this.month, required this.amount, required this.consultations});
+}
+
+class PrescriptionMedicine {
+  final String name, dosage, frequency, duration, instructions;
+  PrescriptionMedicine({required this.name, required this.dosage, required this.frequency, required this.duration, this.instructions = ''});
+}
+
+class PrescriptionData {
+  final String id, patientName, diagnosis, date, doctorName, notes;
+  final List<PrescriptionMedicine> medicines;
+  PrescriptionData({required this.id, required this.patientName, required this.diagnosis, required this.medicines, required this.date, required this.doctorName, this.notes = ''});
+}
+
+// ── Mock Data ──
+final List<MedicalRecord> mockRecords = [
+  MedicalRecord(id: 'r1', title: 'Complete Blood Count', category: 'Lab Report', date: 'Oct 15, 2023', doctorName: 'Dr. Sarah Jenkins', description: 'All values normal. WBC: 7.2, RBC: 4.8, Hb: 14.2'),
+  MedicalRecord(id: 'r2', title: 'Chest X-Ray', category: 'Imaging', date: 'Oct 10, 2023', doctorName: 'Dr. Sarah Jenkins', description: 'No abnormalities detected.', fileType: 'image'),
+  MedicalRecord(id: 'r3', title: 'Skin Care Rx', category: 'Prescription', date: 'Sep 05, 2023', doctorName: 'Dr. Emily Carter', description: 'Tretinoin 0.025%, Niacinamide. 3 months.'),
+  MedicalRecord(id: 'r4', title: 'COVID-19 Vaccine', category: 'Vaccine', date: 'Aug 20, 2023', doctorName: 'Dr. James Wilson', description: 'Covishield Dose 2 administered.'),
+  MedicalRecord(id: 'r5', title: 'Lipid Profile', category: 'Lab Report', date: 'Jul 12, 2023', doctorName: 'Dr. Sarah Jenkins', description: 'Cholesterol: 185, HDL: 52, LDL: 108'),
+  MedicalRecord(id: 'r6', title: 'MRI Brain', category: 'Imaging', date: 'Jun 28, 2023', doctorName: 'Dr. Michael Chen', description: 'Normal morphology.', fileType: 'image'),
+];
+final List<Review> mockReviews = [
+  Review(id: 'v1', patientName: 'Ananya Gupta', patientImage: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100', rating: 5, comment: 'Wonderful doctor! Explained everything clearly.', date: 'Oct 20, 2023'),
+  Review(id: 'v2', patientName: 'Rahul Verma', patientImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100', rating: 5, comment: 'Best doctor ever. Thorough examination.', date: 'Oct 15, 2023'),
+  Review(id: 'v3', patientName: 'Meera Patel', patientImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100', rating: 4, comment: 'Great experience overall.', date: 'Oct 8, 2023'),
+  Review(id: 'v4', patientName: 'Vikram Singh', patientImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100', rating: 5, comment: 'Very knowledgeable and caring.', date: 'Sep 28, 2023'),
+];
+final List<PatientRecord> mockPatients = [
+  PatientRecord(id: 'p1', name: 'Sanya Sharma', age: '24', gender: 'Female', imageUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150', lastVisit: 'Oct 24', condition: 'Hypertension', allergies: ['Penicillin'], bloodType: 'B+'),
+  PatientRecord(id: 'p2', name: 'Arjun Mehta', age: '35', gender: 'Male', imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150', lastVisit: 'Oct 20', condition: 'Arrhythmia', bloodType: 'O+'),
+  PatientRecord(id: 'p3', name: 'Priya Nair', age: '42', gender: 'Female', imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150', lastVisit: 'Oct 18', condition: 'Atrial Fibrillation', allergies: ['Aspirin'], bloodType: 'A+'),
+  PatientRecord(id: 'p4', name: 'Karan Johar', age: '55', gender: 'Male', imageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150', lastVisit: 'Oct 10', condition: 'Heart Failure', allergies: ['Ibuprofen'], bloodType: 'AB+'),
+];
+final List<EarningsData> mockEarnings = [
+  EarningsData(month: 'May', amount: 18500, consultations: 142), EarningsData(month: 'Jun', amount: 22300, consultations: 168),
+  EarningsData(month: 'Jul', amount: 19800, consultations: 155), EarningsData(month: 'Aug', amount: 25600, consultations: 192),
+  EarningsData(month: 'Sep', amount: 28400, consultations: 210), EarningsData(month: 'Oct', amount: 31200, consultations: 238),
+];
+final List<PrescriptionData> mockRx = [
+  PrescriptionData(id: 'px1', patientName: 'Sanya Sharma', diagnosis: 'Hypertension Stage 1', date: 'Oct 24, 2023', doctorName: 'Dr. Sarah Jenkins', notes: 'Reduce sodium.',
+    medicines: [PrescriptionMedicine(name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily', duration: '30 days', instructions: 'Morning'), PrescriptionMedicine(name: 'Losartan', dosage: '50mg', frequency: 'Once daily', duration: '30 days')]),
+  PrescriptionData(id: 'px2', patientName: 'Arjun Mehta', diagnosis: 'Cardiac Arrhythmia', date: 'Oct 20, 2023', doctorName: 'Dr. Sarah Jenkins', notes: 'ECG follow-up in 2 weeks.',
+    medicines: [PrescriptionMedicine(name: 'Metoprolol', dosage: '25mg', frequency: 'Twice daily', duration: '14 days'), PrescriptionMedicine(name: 'Aspirin', dosage: '75mg', frequency: 'Once daily', duration: '30 days')]),
+];
+
+// ─────────────────────────────────────────────
+// DOCTOR SEARCH SCREEN
+// ─────────────────────────────────────────────
+class DoctorSearchScreen extends StatefulWidget {
+  final String? initialSpecialty;
+  const DoctorSearchScreen({super.key, this.initialSpecialty});
+  @override State<DoctorSearchScreen> createState() => _DoctorSearchScreenState();
+}
+class _DoctorSearchScreenState extends State<DoctorSearchScreen> {
+  String _q = ''; String? _spec; double _minR = 0; String _sort = 'Rating';
+  final _specs = ['All','Cardiologist','Neurologist','Dermatologist','Orthopedics'];
+  @override void initState() { super.initState(); _spec = widget.initialSpecialty; }
+  List<Doctor> get _res {
+    var l = mockDoctors.where((d) {
+      if (_q.isNotEmpty && !d.name.toLowerCase().contains(_q.toLowerCase()) && !d.specialty.toLowerCase().contains(_q.toLowerCase())) return false;
+      if (_spec != null && _spec != 'All' && d.specialty != _spec) return false;
+      if (d.rating < _minR) return false; return true;
+    }).toList();
+    if (_sort == 'Rating') l.sort((a, b) => b.rating.compareTo(a.rating));
+    if (_sort == 'Experience') l.sort((a, b) => b.experience.compareTo(a.experience));
+    return l;
+  }
+  @override Widget build(BuildContext context) {
+    final r = _res;
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Find Doctors', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context)),
+        actions: [IconButton(icon: const Icon(Icons.tune_rounded), onPressed: () {
+          showModalBottomSheet(context: context, backgroundColor: AppColors.surface, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+            builder: (_) => StatefulBuilder(builder: (c, sS) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20), Text('Filters', style: AppStyles.h2), const SizedBox(height: 16),
+              Text('Min Rating: ${_minR.toStringAsFixed(1)}', style: AppStyles.h3.copyWith(fontSize: 14)),
+              Slider(value: _minR, min: 0, max: 5, divisions: 10, activeColor: AppColors.rating, onChanged: (v) => sS(() => _minR = v)),
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(c); },
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                child: const Text('Apply', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)))),
+              const SizedBox(height: 16),
+            ]))));
+        })]),
+      body: Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(24, 8, 24, 0), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+          child: TextField(onChanged: (v) => setState(() => _q = v), decoration: InputDecoration(icon: Icon(Icons.search, color: AppColors.textSecondary), hintText: 'Search doctors...', hintStyle: TextStyle(color: AppColors.textSecondary), border: InputBorder.none)))),
+        const SizedBox(height: 12),
+        SizedBox(height: 40, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 24), scrollDirection: Axis.horizontal, itemCount: _specs.length, separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) { final s = _specs[i]; final sel = (_spec ?? 'All') == s;
+            return GestureDetector(onTap: () => setState(() => _spec = s == 'All' ? null : s),
+              child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(color: sel ? AppColors.primary : AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? AppColors.primary : AppColors.border)),
+                child: Center(child: Text(s, style: TextStyle(color: sel ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13))))); })),
+        Padding(padding: const EdgeInsets.all(24), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('${r.length} found', style: AppStyles.caption),
+          GestureDetector(onTap: () => setState(() => _sort = _sort == 'Rating' ? 'Experience' : 'Rating'),
+            child: Row(children: [const Icon(Icons.sort, size: 16, color: AppColors.primary), const SizedBox(width: 4), Text(_sort, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 13))]))])),
+        Expanded(child: r.isEmpty ? Center(child: Text('No doctors found', style: AppStyles.h3))
+          : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 24), itemCount: r.length, itemBuilder: (_, i) {
+            final d = r[i];
+            return GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DoctorDetailsScreen(doctor: d))),
+              child: Container(margin: const EdgeInsets.only(bottom: 16), padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+                child: Row(children: [ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.network(d.imageUrl, width: 75, height: 75, fit: BoxFit.cover)), const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(d.name, style: AppStyles.h3.copyWith(fontSize: 16)), const SizedBox(height: 4),
+                    Text('${d.specialty} • ${d.hospital}', style: AppStyles.body.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis), const SizedBox(height: 8),
+                    Row(children: [const Icon(Icons.star_rounded, color: AppColors.rating, size: 14), Text(' ${d.rating}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.rating)),
+                      const SizedBox(width: 8), Text('${d.experience} yrs', style: AppStyles.caption)])
+                  ]))])));
+          })),
+      ]));
+  }
+}
+
+// ─────────────────────────────────────────────
+// MEDICAL RECORDS VAULT
+// ─────────────────────────────────────────────
+class MedicalRecordsScreen extends StatefulWidget {
+  const MedicalRecordsScreen({super.key});
+  @override State<MedicalRecordsScreen> createState() => _MedicalRecordsScreenState();
+}
+class _MedicalRecordsScreenState extends State<MedicalRecordsScreen> {
+  String _selCat = 'All';
+  final _cats = ['All', 'Lab Report', 'Imaging', 'Prescription', 'Vaccine'];
+  List<MedicalRecord> get _filtered => _selCat == 'All' ? mockRecords : mockRecords.where((r) => r.category == _selCat).toList();
+
+  IconData _catIcon(String c) => switch (c) { 'Lab Report' => Icons.science_rounded, 'Imaging' => Icons.image_rounded, 'Prescription' => Icons.receipt_long_rounded, 'Vaccine' => Icons.vaccines_rounded, _ => Icons.folder_rounded };
+  Color _catColor(String c) => switch (c) { 'Lab Report' => AppColors.primary, 'Imaging' => AppColors.accent, 'Prescription' => AppColors.accentGreen, 'Vaccine' => const Color(0xFFFF8E53), _ => AppColors.textSecondary };
+
+  @override Widget build(BuildContext context) {
+    final recs = _filtered;
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Medical Records', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context)),
+        actions: [IconButton(icon: const Icon(Icons.upload_file_rounded), onPressed: () => _showUploadDialog())]),
+      body: Column(children: [
+        // Vault status
+        Container(margin: const EdgeInsets.fromLTRB(24, 8, 24, 16), padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF22D38F), Color(0xFF00D1FF)]), borderRadius: BorderRadius.circular(20)),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.shield_rounded, color: Colors.white, size: 24)),
+            const SizedBox(width: 16),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Encrypted Vault', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+              Text('${mockRecords.length} documents stored securely', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+            ])),
+          ])),
+        // Category chips
+        SizedBox(height: 40, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 24), scrollDirection: Axis.horizontal, itemCount: _cats.length, separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) { final c = _cats[i]; final sel = _selCat == c;
+            return GestureDetector(onTap: () => setState(() => _selCat = c),
+              child: AnimatedContainer(duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(color: sel ? AppColors.primary : AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? AppColors.primary : AppColors.border)),
+                child: Center(child: Text(c, style: TextStyle(color: sel ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13))))); })),
+        const SizedBox(height: 16),
+        Expanded(child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 24), physics: const BouncingScrollPhysics(), itemCount: recs.length,
+          itemBuilder: (_, i) { final r = recs[i]; final col = _catColor(r.category);
+            return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+              child: Row(children: [
+                Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(_catIcon(r.category), color: col, size: 24)),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text(r.description, style: AppStyles.body.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  Row(children: [Icon(Icons.calendar_today, size: 12, color: AppColors.textSecondary), const SizedBox(width: 4), Text(r.date, style: AppStyles.caption),
+                    const SizedBox(width: 12), Icon(Icons.person, size: 12, color: AppColors.textSecondary), const SizedBox(width: 4), Text(r.doctorName, style: AppStyles.caption)]),
+                ])),
+                Column(children: [
+                  Icon(r.fileType == 'image' ? Icons.image_rounded : Icons.picture_as_pdf_rounded, color: col, size: 20),
+                  const SizedBox(height: 8),
+                  Icon(Icons.share_rounded, color: AppColors.textSecondary, size: 18),
+                ]),
+              ])); })),
+      ]),
+    );
+  }
+  void _showUploadDialog() {
+    showDialog(context: context, builder: (_) => Dialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), backgroundColor: AppColors.surface,
+      child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: const Icon(Icons.cloud_upload_rounded, color: AppColors.primary, size: 48)),
+        const SizedBox(height: 20), Text('Upload Document', style: AppStyles.h2), const SizedBox(height: 8),
+        Text('Select a file to upload to your vault', style: AppStyles.body, textAlign: TextAlign.center), const SizedBox(height: 24),
+        Row(children: [
+          _uploadOption(Icons.camera_alt_rounded, 'Camera', AppColors.primary),
+          const SizedBox(width: 16),
+          _uploadOption(Icons.photo_library_rounded, 'Gallery', AppColors.accent),
+          const SizedBox(width: 16),
+          _uploadOption(Icons.insert_drive_file_rounded, 'Files', AppColors.accentGreen),
+        ]),
+        const SizedBox(height: 20),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600))),
+      ]))));
+  }
+  Widget _uploadOption(IconData icon, String label, Color color) {
+    return Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withValues(alpha: 0.2))),
+      child: Column(children: [Icon(icon, color: color, size: 28), const SizedBox(height: 8), Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12))])));
+  }
+}
+
+// ─────────────────────────────────────────────
+// DOCTOR REVIEWS SCREEN
+// ─────────────────────────────────────────────
+class DoctorReviewsScreen extends StatefulWidget {
+  final Doctor doctor;
+  const DoctorReviewsScreen({super.key, required this.doctor});
+  @override State<DoctorReviewsScreen> createState() => _DoctorReviewsScreenState();
+}
+class _DoctorReviewsScreenState extends State<DoctorReviewsScreen> {
+  bool _showWriteReview = false;
+  int _userRating = 0;
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text('Reviews (${widget.doctor.reviews})', style: const TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Rating summary
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Row(children: [
+            Column(children: [
+              Text('${widget.doctor.rating}', style: TextStyle(fontSize: 48, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              Row(children: List.generate(5, (i) => Icon(i < widget.doctor.rating.floor() ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.rating, size: 20))),
+              const SizedBox(height: 4), Text('${widget.doctor.reviews} reviews', style: AppStyles.caption),
+            ]),
+            const SizedBox(width: 24),
+            Expanded(child: Column(children: [
+              _ratingBar(5, 0.7), _ratingBar(4, 0.2), _ratingBar(3, 0.05), _ratingBar(2, 0.03), _ratingBar(1, 0.02),
+            ])),
+          ])),
+        const SizedBox(height: 24),
+        // Write review button
+        SizedBox(width: double.infinity, height: 50, child: ElevatedButton.icon(
+          onPressed: () => setState(() => _showWriteReview = !_showWriteReview),
+          icon: const Icon(Icons.edit_rounded, size: 18), label: const Text('Write a Review', style: TextStyle(fontWeight: FontWeight.bold)),
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+        if (_showWriteReview) ...[
+          const SizedBox(height: 16),
+          Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Your Rating', style: AppStyles.h3.copyWith(fontSize: 14)),
+              const SizedBox(height: 8),
+              Row(children: List.generate(5, (i) => GestureDetector(onTap: () => setState(() => _userRating = i + 1),
+                child: Padding(padding: const EdgeInsets.only(right: 4), child: Icon(i < _userRating ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.rating, size: 32))))),
+              const SizedBox(height: 12),
+              TextField(maxLines: 3, decoration: InputDecoration(hintText: 'Share your experience...', hintStyle: TextStyle(color: AppColors.textSecondary), filled: true, fillColor: AppColors.background,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, height: 44, child: ElevatedButton(onPressed: () => setState(() => _showWriteReview = false),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.accentGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Submit Review', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
+            ])),
+        ],
+        const SizedBox(height: 24),
+        Text('All Reviews', style: AppStyles.h3),
+        const SizedBox(height: 16),
+        ...mockReviews.map((r) => Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(radius: 20, backgroundImage: NetworkImage(r.patientImage)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(r.patientName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textPrimary)),
+                Text(r.date, style: AppStyles.caption),
+              ])),
+              Row(children: List.generate(5, (i) => Icon(i < r.rating ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.rating, size: 14))),
+            ]),
+            const SizedBox(height: 12),
+            Text(r.comment, style: AppStyles.body),
+          ]))),
+      ])),
+    );
+  }
+  Widget _ratingBar(int star, double pct) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(children: [
+    Text('$star', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+    const SizedBox(width: 8),
+    Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: pct, backgroundColor: AppColors.border, valueColor: AlwaysStoppedAnimation(AppColors.rating), minHeight: 6))),
+  ]));
+}
+
+// ─────────────────────────────────────────────
+// DOCTOR DASHBOARD
+// ─────────────────────────────────────────────
+class DoctorDashboardScreen extends StatelessWidget {
+  const DoctorDashboardScreen({super.key});
+  @override Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.fromLTRB(24, 60, 24, 120), physics: const BouncingScrollPhysics(), children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Welcome back,', style: AppStyles.body.copyWith(fontSize: 15)),
+          const SizedBox(height: 4),
+          ShaderMask(shaderCallback: (b) => AppColors.primaryGradient.createShader(b),
+            child: Text('Dr. Sarah 👩‍⚕️', style: AppStyles.h1.copyWith(color: Colors.white))),
+        ]),
+        GestureDetector(onTap: () { isDoctorMode.value = false; },
+          child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.swap_horiz, color: AppColors.accentGreen, size: 16), SizedBox(width: 4), Text('Patient', style: TextStyle(color: AppColors.accentGreen, fontWeight: FontWeight.bold, fontSize: 12))]))),
+      ]),
+      const SizedBox(height: 24),
+      // Stats row
+      Row(children: [
+        _statCard('Today', '8', Icons.calendar_today_rounded, AppColors.primary),
+        const SizedBox(width: 12),
+        _statCard('Patients', '${mockPatients.length}', Icons.people_rounded, AppColors.accent),
+        const SizedBox(width: 12),
+        _statCard('Revenue', '\$31.2K', Icons.trending_up_rounded, AppColors.accentGreen),
+      ]),
+      const SizedBox(height: 28),
+      // Quick actions
+      Text('Quick Actions', style: AppStyles.h3), const SizedBox(height: 16),
+      Row(children: [
+        _actionBtn(context, Icons.receipt_long_rounded, 'Prescribe', AppColors.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EPrescriptionScreen()))),
+        const SizedBox(width: 12),
+        _actionBtn(context, Icons.people_alt_rounded, 'Patients', AppColors.accent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PatientHistoryScreen()))),
+        const SizedBox(width: 12),
+        _actionBtn(context, Icons.bar_chart_rounded, 'Earnings', const Color(0xFFFF8E53), () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EarningsScreen()))),
+        const SizedBox(width: 12),
+        _actionBtn(context, Icons.event_busy_rounded, 'Schedule', AppColors.danger, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DoctorScheduleMgmtScreen()))),
+      ]),
+      const SizedBox(height: 28),
+      Text("Today's Appointments", style: AppStyles.h3), const SizedBox(height: 16),
+      ...mockPatients.take(3).map((p) => Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+        child: Row(children: [
+          CircleAvatar(radius: 24, backgroundImage: NetworkImage(p.imageUrl)),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.name, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
+            Text(p.condition, style: AppStyles.caption),
+          ])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(10)),
+            child: const Text('Start', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+        ]))),
+    ]);
+  }
+  static Widget _statCard(String label, String value, IconData icon, Color color) {
+    return Expanded(child: Container(padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color, size: 20)),
+        const SizedBox(height: 12),
+        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+        Text(label, style: AppStyles.caption),
+      ])));
+  }
+  static Widget _actionBtn(BuildContext ctx, IconData icon, String label, Color color, VoidCallback onTap) {
+    return Expanded(child: GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+      child: Column(children: [
+        Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 20)),
+        const SizedBox(height: 8), Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+      ]))));
+  }
+}
+
+// ─────────────────────────────────────────────
+// PATIENT HISTORY SCREEN (Doctor side)
+// ─────────────────────────────────────────────
+class PatientHistoryScreen extends StatelessWidget {
+  const PatientHistoryScreen({super.key});
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('My Patients', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: ListView.builder(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), itemCount: mockPatients.length,
+        itemBuilder: (_, i) { final p = mockPatients[i];
+          return GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p))),
+            child: Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(gradient: AppColors.surfaceGradient, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+              child: Row(children: [
+                CircleAvatar(radius: 28, backgroundImage: NetworkImage(p.imageUrl)),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.name, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
+                  const SizedBox(height: 4),
+                  Text('${p.age} yrs • ${p.gender} • ${p.bloodType}', style: AppStyles.caption),
+                  const SizedBox(height: 4),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text(p.condition, style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600))),
+                ])),
+                Column(children: [
+                  Text('Last visit', style: AppStyles.caption),
+                  Text(p.lastVisit, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.textPrimary)),
+                ]),
+              ])));
+        }),
+    );
+  }
+}
+
+class PatientDetailScreen extends StatelessWidget {
+  final PatientRecord patient;
+  const PatientDetailScreen({super.key, required this.patient});
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text(patient.name, style: const TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Patient card
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(24)),
+          child: Row(children: [
+            CircleAvatar(radius: 36, backgroundImage: NetworkImage(patient.imageUrl)),
+            const SizedBox(width: 16),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(patient.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('${patient.age} yrs • ${patient.gender}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+              const SizedBox(height: 8),
+              Row(children: [
+                _tag('Blood: ${patient.bloodType}'), const SizedBox(width: 8),
+                _tag(patient.condition),
+              ]),
+            ])),
+          ])),
+        const SizedBox(height: 20),
+        if (patient.allergies.isNotEmpty) ...[
+          Text('Allergies', style: AppStyles.h3), const SizedBox(height: 8),
+          Wrap(spacing: 8, children: patient.allergies.map((a) => Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 14), const SizedBox(width: 4),
+              Text(a, style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 12))]))).toList()),
+          const SizedBox(height: 20),
+        ],
+        Text('Clinical Notes', style: AppStyles.h3), const SizedBox(height: 8),
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+          child: TextField(maxLines: 4, decoration: InputDecoration(hintText: 'Add notes for this patient...', hintStyle: TextStyle(color: AppColors.textSecondary), border: InputBorder.none))),
+        const SizedBox(height: 20),
+        Text('Visit History', style: AppStyles.h3), const SizedBox(height: 12),
+        ...List.generate(3, (i) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.event_note_rounded, color: AppColors.primary, size: 18)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Visit ${3 - i}', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              Text('Oct ${10 + i * 5}, 2023 • ${patient.condition}', style: AppStyles.caption),
+            ])),
+          ]))),
+      ])));
+  }
+  static Widget _tag(String t) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+    child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)));
+}
+
+// ─────────────────────────────────────────────
+// E-PRESCRIPTION GENERATOR
+// ─────────────────────────────────────────────
+class EPrescriptionScreen extends StatefulWidget {
+  const EPrescriptionScreen({super.key});
+  @override State<EPrescriptionScreen> createState() => _EPrescriptionScreenState();
+}
+class _EPrescriptionScreenState extends State<EPrescriptionScreen> {
+  final _patientCtrl = TextEditingController();
+  final _diagnosisCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  final List<Map<String, String>> _meds = [{'name': '', 'dosage': '', 'freq': '', 'dur': ''}];
+
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('e-Prescription', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(20)),
+          child: Row(children: [
+            const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 32),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('New Prescription', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+              Text('Dr. Sarah Jenkins', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+            ]),
+          ])),
+        const SizedBox(height: 24),
+        _field('Patient Name', _patientCtrl, Icons.person_rounded),
+        const SizedBox(height: 16),
+        _field('Diagnosis', _diagnosisCtrl, Icons.medical_information_rounded),
+        const SizedBox(height: 24),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Medications', style: AppStyles.h3),
+          GestureDetector(onTap: () => setState(() => _meds.add({'name': '', 'dosage': '', 'freq': '', 'dur': ''})),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add, color: AppColors.accentGreen, size: 16), SizedBox(width: 4), Text('Add', style: TextStyle(color: AppColors.accentGreen, fontWeight: FontWeight.bold, fontSize: 12))]))),
+        ]),
+        const SizedBox(height: 12),
+        ...List.generate(_meds.length, (i) => Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Text('Medicine ${i + 1}', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Spacer(), if (_meds.length > 1) GestureDetector(onTap: () => setState(() => _meds.removeAt(i)), child: const Icon(Icons.close, color: AppColors.danger, size: 18))]),
+            const SizedBox(height: 10),
+            _miniField('Name', 'e.g., Amlodipine'),
+            const SizedBox(height: 8),
+            Row(children: [Expanded(child: _miniField('Dosage', '5mg')), const SizedBox(width: 8), Expanded(child: _miniField('Frequency', 'Once daily'))]),
+            const SizedBox(height: 8),
+            _miniField('Duration', '30 days'),
+          ]))),
+        const SizedBox(height: 16),
+        Text('Additional Notes', style: AppStyles.h3), const SizedBox(height: 8),
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+          child: TextField(controller: _notesCtrl, maxLines: 3, decoration: InputDecoration(hintText: 'Instructions, follow-up...', hintStyle: TextStyle(color: AppColors.textSecondary), border: InputBorder.none))),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(child: OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.preview_rounded), label: const Text('Preview'),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, side: const BorderSide(color: AppColors.primary), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton.icon(onPressed: () => _showSentDialog(), icon: const Icon(Icons.send_rounded, size: 18), label: const Text('Send', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+        ]),
+      ])));
+  }
+  Widget _field(String label, TextEditingController ctrl, IconData icon) => Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+    child: TextField(controller: ctrl, decoration: InputDecoration(icon: Icon(icon, color: AppColors.primary), labelText: label, labelStyle: TextStyle(color: AppColors.textSecondary), border: InputBorder.none)));
+  Widget _miniField(String label, String hint) => TextField(decoration: InputDecoration(labelText: label, hintText: hint, labelStyle: TextStyle(color: AppColors.textSecondary, fontSize: 12), hintStyle: TextStyle(color: AppColors.textSecondary.withValues(alpha: 0.5), fontSize: 13),
+    isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), filled: true, fillColor: AppColors.background, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none)));
+  void _showSentDialog() {
+    showDialog(context: context, builder: (_) => Dialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)), backgroundColor: AppColors.surface,
+      child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: const Icon(Icons.check_circle_rounded, color: AppColors.accentGreen, size: 56)),
+        const SizedBox(height: 20), Text('Prescription Sent!', style: AppStyles.h2), const SizedBox(height: 8),
+        Text('The prescription has been sent to the patient.', style: AppStyles.body, textAlign: TextAlign.center), const SizedBox(height: 24),
+        SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); },
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
+      ]))));
+  }
+}
+
+// ─────────────────────────────────────────────
+// EARNINGS / ANALYTICS DASHBOARD
+// ─────────────────────────────────────────────
+class EarningsScreen extends StatelessWidget {
+  const EarningsScreen({super.key});
+  @override Widget build(BuildContext context) {
+    final total = mockEarnings.fold<double>(0, (s, e) => s + e.amount);
+    final totalC = mockEarnings.fold<int>(0, (s, e) => s + e.consultations);
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Earnings', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Total earnings card
+        Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(24), boxShadow: AppColors.primaryGlow(opacity: 0.3)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Total Earnings', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
+            const SizedBox(height: 8),
+            Text('\$${(total / 1000).toStringAsFixed(1)}K', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.trending_up, color: Colors.white, size: 14), SizedBox(width: 4), Text('+12.5%', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))])),
+              const SizedBox(width: 12), Text('$totalC consultations', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+            ]),
+          ])),
+        const SizedBox(height: 24),
+        // Chart
+        Text('Monthly Revenue', style: AppStyles.h3), const SizedBox(height: 16),
+        Container(padding: const EdgeInsets.all(20), height: 200, decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: mockEarnings.map((e) {
+            final pct = e.amount / 35000;
+            return Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text('\$${(e.amount / 1000).toStringAsFixed(1)}K', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              const SizedBox(height: 4),
+              AnimatedContainer(duration: const Duration(milliseconds: 500), height: 120 * pct, decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(6))),
+              const SizedBox(height: 8),
+              Text(e.month, style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            ])));
+          }).toList())),
+        const SizedBox(height: 24),
+        Text('Breakdown', style: AppStyles.h3), const SizedBox(height: 12),
+        _breakdownItem('In-Person', 156, AppColors.primary, 0.6),
+        _breakdownItem('Video Call', 62, AppColors.accent, 0.24),
+        _breakdownItem('Chat', 20, AppColors.accentGreen, 0.16),
+        const SizedBox(height: 24),
+        Text('Monthly Details', style: AppStyles.h3), const SizedBox(height: 12),
+        ...mockEarnings.reversed.map((e) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.calendar_month_rounded, color: AppColors.primary, size: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(e.month, style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text('${e.consultations} consultations', style: AppStyles.caption),
+            ])),
+            Text('\$${e.amount.toInt()}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.primary)),
+          ]))),
+      ])));
+  }
+  Widget _breakdownItem(String label, int count, Color color, double pct) => Container(margin: const EdgeInsets.only(bottom: 8), child: Row(children: [
+    Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+    const SizedBox(width: 8), Expanded(child: Text(label, style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13))),
+    Text('$count', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+    const SizedBox(width: 8), Text('${(pct * 100).toInt()}%', style: AppStyles.caption),
+  ]));
+}
+
+// ─────────────────────────────────────────────
+// DOCTOR SCHEDULE MANAGEMENT
+// ─────────────────────────────────────────────
+class DoctorScheduleMgmtScreen extends StatefulWidget {
+  const DoctorScheduleMgmtScreen({super.key});
+  @override State<DoctorScheduleMgmtScreen> createState() => _DoctorScheduleMgmtScreenState();
+}
+class _DoctorScheduleMgmtScreenState extends State<DoctorScheduleMgmtScreen> {
+  final _slots = ['09:00 AM', '10:00 AM', '11:00 AM', '01:00 PM', '02:30 PM', '04:00 PM'];
+  final Set<String> _blocked = {'11:00 AM'};
+  final _leaves = <Map<String, String>>[
+    {'date': 'Nov 14, 2023', 'reason': 'Personal Leave', 'type': 'Full Day'},
+    {'date': 'Dec 25, 2023', 'reason': 'Christmas', 'type': 'Holiday'},
+    {'date': 'Jan 26, 2024', 'reason': 'Republic Day', 'type': 'Holiday'},
+  ];
+
+  @override Widget build(BuildContext context) {
+    return Scaffold(backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Schedule Management', style: TextStyle(fontWeight: FontWeight.bold)), centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+      body: SingleChildScrollView(padding: const EdgeInsets.all(24), physics: const BouncingScrollPhysics(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Time Slots', style: AppStyles.h3), const SizedBox(height: 4),
+        Text('Toggle slots on/off for availability', style: AppStyles.body), const SizedBox(height: 16),
+        Wrap(spacing: 10, runSpacing: 10, children: _slots.map((s) {
+          final blocked = _blocked.contains(s);
+          return GestureDetector(onTap: () => setState(() => blocked ? _blocked.remove(s) : _blocked.add(s)),
+            child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: (MediaQuery.of(context).size.width - 58) / 3, padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(color: blocked ? AppColors.danger.withValues(alpha: 0.1) : AppColors.accentGreen.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14), border: Border.all(color: blocked ? AppColors.danger : AppColors.accentGreen)),
+              child: Column(children: [
+                Icon(blocked ? Icons.block_rounded : Icons.check_circle_rounded, color: blocked ? AppColors.danger : AppColors.accentGreen, size: 20),
+                const SizedBox(height: 6),
+                Text(s, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: blocked ? AppColors.danger : AppColors.accentGreen)),
+              ])));
+        }).toList()),
+        const SizedBox(height: 28),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Leaves & Holidays', style: AppStyles.h3),
+          GestureDetector(onTap: _addLeave, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add, color: AppColors.primary, size: 16), SizedBox(width: 4), Text('Add', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12))]))),
+        ]),
+        const SizedBox(height: 12),
+        ..._leaves.map((l) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border.withValues(alpha: 0.4))),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(
+              color: (l['type'] == 'Holiday' ? AppColors.rating : AppColors.danger).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(l['type'] == 'Holiday' ? Icons.celebration_rounded : Icons.event_busy_rounded, color: l['type'] == 'Holiday' ? AppColors.rating : AppColors.danger, size: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(l['reason']!, style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text('${l['date']} • ${l['type']}', style: AppStyles.caption),
+            ])),
+            GestureDetector(onTap: () => setState(() => _leaves.remove(l)),
+              child: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 20)),
+          ]))),
+      ])));
+  }
+  void _addLeave() {
+    showDialog(context: context, builder: (_) => Dialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), backgroundColor: AppColors.surface,
+      child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Add Leave', style: AppStyles.h2), const SizedBox(height: 16),
+        TextField(decoration: InputDecoration(labelText: 'Reason', filled: true, fillColor: AppColors.background, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+        const SizedBox(height: 12),
+        TextField(decoration: InputDecoration(labelText: 'Date (e.g., Nov 20, 2023)', filled: true, fillColor: AppColors.background, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+        const SizedBox(height: 16),
+        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: () { setState(() => _leaves.add({'date': 'Nov 20, 2023', 'reason': 'Personal', 'type': 'Full Day'})); Navigator.pop(context); },
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          child: const Text('Add Leave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
+      ]))));
   }
 }
